@@ -15,8 +15,9 @@ This repo is the ASP.NET Core backend (.NET 10) of kubernetes-learning-platform,
 - **Secrets.** The LLM API key lives only in api config. It's never logged, never returned to clients, never sent to the sandbox.
 - **Limits.** One active session per user. The token budget is enforced per session. Idle sessions are reaped.
 - **Async correctness.** No sync-over-async, `CancellationToken`s passed through, no unbounded per-connection buffers, WebSocket close handled.
+- **Sandbox link drops.** envmgr is on another machine across the WireGuard mesh. A dropped `Connect` stream sets `SessionStatus{reconnecting}`, fails in-flight tool calls with a retryable error, and reconnects with backoff. The fresh snapshot after reattach replaces `TopologyCache`. Flag code that ends the session or hangs a tool call when the link drops.
 - **Schema changes** come with an EF Core migration.
-- Config is env vars only (`ConnectionStrings__Db`, `EnvManager__Socket`, `Sandbox__Mode`, `Llm__Provider`, `Llm__ApiKey`, `Agent__TokenBudget`, `Session__IdleMinutes`).
+- Config is env vars only (`ConnectionStrings__Db`, `EnvManager__Address`, `Sandbox__Mode`, `Llm__Provider`, `Llm__ApiKey`, `Agent__TokenBudget`, `Session__IdleMinutes`).
 
 ## Ownership
 `src/KubernetesLearning.Agent/` and `lessons/` belong to Filip. Everything else belongs to Person 2.

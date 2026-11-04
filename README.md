@@ -29,6 +29,18 @@ Request and response bodies are Protobuf messages from [`contracts`](https://git
 
 **Persist, then broadcast.** Every server message is written to the event log before it's sent. A reconnecting browser sends `Resync{afterSeq}` and catches up from the log, and replay reads the same log.
 
+## 🔗 Sandbox link
+
+`api` runs on the Hetzner box, and `envmgr` runs on the Proxmox box at home. They talk gRPC over the WireGuard mesh, so the link can drop ([ADR 0001](https://github.com/kubernetes-learning-platform/docs/blob/main/adr/0001-hosting-and-harness-transport.md)).
+
+When the `Connect` stream for a session breaks:
+1. The session goes `SessionStatus{reconnecting}`, and the browser shows it.
+2. In-flight agent tool calls fail with a retryable error, so the agent can retry instead of hanging.
+3. `SandboxClient` redials with backoff. The sandbox keeps running on the Proxmox box the whole time.
+4. On reattach, the harness sends a fresh `TopologySnapshot`, which replaces `TopologyCache`, and the session is live again.
+
+Replays and the lessons' recorded fallback sessions come from Postgres on the Hetzner box, so they still work while the Proxmox box is unreachable.
+
 ## 🧠 Agent library
 
 `KubernetesLearning.Agent` runs the LLM loop inside the api process. It has no ASP.NET or EF Core dependency.
@@ -81,7 +93,7 @@ Env vars only:
 | Variable | Purpose |
 |---|---|
 | `ConnectionStrings__Db` | Postgres connection string |
-| `EnvManager__Socket` | Path to envmgr's unix socket |
+| `EnvManager__Address` | envmgr's gRPC address on the WireGuard mesh, e.g. `http://10.66.0.2:7070` |
 | `Sandbox__Mode` | `Real` or `Fake` |
 | `Llm__Provider` · `Llm__ApiKey` | LLM provider and key. The key never leaves api. |
 | `Agent__TokenBudget` | Per-session token cap |
@@ -97,7 +109,7 @@ Installing `KubernetesLearning.Contracts` and `KubernetesLearning.SandboxClient`
 
 `.github/CODEOWNERS` assigns `src/KubernetesLearning.Agent/` and `lessons/` to Filip and everything else to Person 2. On a free plan with private repos, it requests reviews but can't enforce them.
 
-**Ships:** the `api` container image → GHCR.
+**Ships:** the `api` container image (multi-arch) → GHCR. It runs in Docker Compose on the Hetzner box, behind Caddy, and is only reachable over the WireGuard mesh, which is why a light auth mechanism is enough.
 
 ## 📚 More
 
