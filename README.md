@@ -2,48 +2,46 @@
 
 > **The ASP.NET Core backend (.NET 10):** auth, sessions, the WebSocket gateway, the session event log, scenarios, and the optional AI helper.
 
-Part of [**kubernetes-learning-platform**](https://github.com/kubernetes-learning-platform/docs), a live Kubernetes lab with an optional AI helper. Start at the [docs hub](https://github.com/kubernetes-learning-platform/docs) for the big picture.
+Part of [kubernetes-learning-platform](https://github.com/kubernetes-learning-platform/docs), a live Kubernetes lab with an optional AI helper. The [docs repository](https://github.com/kubernetes-learning-platform/docs) describes the overall system.
 
 **Owner:** Person 2 (the Scenarios and Agent libraries and `scenarios/`: Filip) · **Status:** planned layout, scaffolding lands in M1.
 
 ---
 
-## 🧭 What this repo does
+## Overview
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/api-dark.svg">
   <img src="assets/api-light.svg" width="100%" alt="Inside the api process. The browser calls the controllers over REST and the socket over WebSocket. The socket hands messages to a LiveSession, which uses the Scenarios library, the Agent library and SandboxClient. Events go to EventFanout, which appends them to Postgres and then sends them back out through the socket. The Provisioner publishes start and teardown requests to RabbitMQ, the Agent calls the LLM API, and SandboxClient talks gRPC to envmgr.">
 </picture>
 
-`api` is the backend, and the only thing the browser ever talks to. It knows who you are, which session is yours, which scenario you're on, and everything that has happened in the session so far. It doesn't run Kubernetes. Your cluster lives in a sandbox on another machine, and `api` is the go-between that also keeps the record.
+`api` is the backend and the only service the browser communicates with. It manages authentication, sessions, scenarios and the session event log. It does not run Kubernetes: each cluster runs in a sandbox on another machine, and `api` relays between the browser and that sandbox while recording the session.
 
-It is one process, built from three projects:
+It is a single process composed of three projects:
 
-- **`KubernetesLearning.Api`** is the part that faces the browser: login, sessions, the live socket, the database and the work queue.
-- **`KubernetesLearning.Scenarios`** runs scenarios. It sets up each step, runs the checks that decide whether the step is solved, and resets a step on request. There is no AI in it, so scenarios work with the helper off.
-- **`KubernetesLearning.Agent`** is the optional helper. It sends your question to an LLM and carries out the typed tools the LLM asks for. The LLM key lives here and never reaches the sandbox.
+- **`KubernetesLearning.Api`**: authentication, sessions, the WebSocket endpoint, persistence and the work queue.
+- **`KubernetesLearning.Scenarios`**: runs scenarios. It applies each step, evaluates the checks that determine whether a step is complete, and resets a step on request. It has no LLM dependency.
+- **`KubernetesLearning.Agent`**: the optional helper. It sends the learner's request to an LLM and executes the typed tools the LLM calls. The LLM API key stays in this process.
 
-| Part in the diagram | What it does |
+| Component | Responsibility |
 |---|---|
-| **Controllers** | Ordinary request-and-response calls: sign in, start or end a session, list scenarios, fetch a page of the event log |
-| **Socket** | The live two-way channel for one session. Keystrokes and chat go in; terminal output, cluster changes and helper replies come out |
-| **LiveSession** | One object in memory per running lab. It holds the link to the sandbox, the scenario runner and, if you use it, the helper |
-| **EventFanout** | Gives every outgoing message the next number in its session, saves it to Postgres, and only then sends it to the browser |
-| **Provisioner** | Asks for a sandbox, and later for its deletion, through the RabbitMQ work queue |
-| **SandboxClient** | The library from `sandbox` that talks to `envmgr`. `api` only sees its `ISandboxSession` interface |
+| **Controllers** | REST endpoints: sign in, start and end sessions, list scenarios, page through the event log |
+| **Socket** | The WebSocket for one session. Receives terminal input and chat, and sends terminal output, cluster changes and helper responses |
+| **LiveSession** | In-memory state for one running session: the sandbox connection, the scenario runner and, when used, the helper |
+| **EventFanout** | Assigns each outgoing message the next sequence number, stores it in Postgres, then sends it to the browser |
+| **Provisioner** | Requests a sandbox, and later its deletion, through the RabbitMQ work queue |
+| **SandboxClient** | Library from `sandbox` that communicates with `envmgr`. `api` uses only its `ISandboxSession` interface |
 
-### Follow one keystroke
+### Message flow
 
-1. You type in the terminal. The browser sends `TerminalInput` over the **socket**.
-2. The **LiveSession** passes it through **SandboxClient** to your VM, where a real shell receives it.
-3. The shell's output comes back the same way.
-4. **EventFanout** gives it a number, appends it to the event log, and then sends it to every browser tab watching the session.
+1. The browser sends `TerminalInput` over the socket.
+2. The `LiveSession` forwards it through `SandboxClient` to the shell in the VM.
+3. The shell output returns along the same path.
+4. `EventFanout` assigns it a sequence number, appends it to the event log, and sends it to every browser connected to the session.
 
-Step 4 is what makes two other features work. A browser that reconnects asks for everything after the last number it saw, and replay reads the same log from the start.
+Storing each message before sending it supports two features. A reconnecting browser requests everything after the last sequence number it received, and replay reads the same log from the beginning.
 
-The whole system at a glance is in the [docs hub](https://github.com/kubernetes-learning-platform/docs#readme).
-
-## 🌐 REST controllers
+## REST controllers
 
 | Controller | Routes | Purpose |
 |---|---|---|
@@ -54,7 +52,7 @@ The whole system at a glance is in the [docs hub](https://github.com/kubernetes-
 
 Request and response bodies are Protobuf messages from [`contracts`](https://github.com/kubernetes-learning-platform/contracts) (`rest.proto`), serialized as proto3 JSON. Health check: `/healthz`.
 
-## 💬 WebSocket
+## WebSocket
 
 `GET /ws/sessions/{id}`: binary frames, each one a `ClientMessage` or `ServerMessage` from `session.proto`.
 
@@ -66,7 +64,7 @@ Request and response bodies are Protobuf messages from [`contracts`](https://git
 
 **The learner drives.** Terminal input and `ApplyManifest` are accepted by default and refused only while the helper is acting.
 
-## 📬 Starting a sandbox
+## Starting a sandbox
 
 Starts arrive in bursts and capacity is limited, so requests wait in a RabbitMQ work queue ([ADR 0002](https://github.com/kubernetes-learning-platform/docs/blob/main/adr/0002-learner-driven-scenarios-and-scale-target.md)). Only start and teardown use it; everything live streams directly.
 
@@ -78,7 +76,7 @@ Starts arrive in bursts and capacity is limited, so requests wait in a RabbitMQ 
 
 `ISandboxProvisioner` hides all of this, so `Sandbox__Mode=Fake` needs no broker.
 
-## 🔗 Sandbox link
+## Sandbox link
 
 `api` runs on the Hetzner box, and `envmgr` runs on the Proxmox box at home. They talk gRPC over the WireGuard mesh, so the link can drop ([ADR 0001](https://github.com/kubernetes-learning-platform/docs/blob/main/adr/0001-hosting-and-harness-transport.md)).
 
@@ -90,7 +88,7 @@ When the `Connect` stream for a session breaks:
 
 Replays and the scenarios' recorded fallback sessions come from Postgres on the Hetzner box, so they still work while the Proxmox box is unreachable.
 
-## 🧩 Scenarios library
+## Scenarios library
 
 `KubernetesLearning.Scenarios` runs scenarios with no LLM dependency, so everything here works with the helper off.
 
@@ -101,7 +99,7 @@ Replays and the scenarios' recorded fallback sessions come from Postgres on the 
 
 The first scenario lives in `scenarios/`. It moves to a `scenarios` repo once the flow is up and working.
 
-## 🧠 Agent library
+## Agent library
 
 `KubernetesLearning.Agent` is the optional helper. It runs the LLM loop inside the api process, and has no ASP.NET or EF Core dependency.
 
@@ -113,7 +111,7 @@ The first scenario lives in `scenarios/`. It moves to a `scenarios` repo once th
 | Tools | `ToolRegistry` with execute, observe, view, fault and interaction tools. `ask_user(question, options[])` suspends the turn until the answer arrives, and `reset_step()` acts on a "reset it" answer. |
 | Budget | `TokenBudget`, a hard per-session cap, plus a global limit on concurrent turns. When the budget runs out, the helper turns off and the scenario carries on. |
 
-## 🗄️ Database
+## Database
 
 Postgres via EF Core + Npgsql:
 
@@ -126,7 +124,7 @@ scenario_progress (user_id, scenario_id, step_id, status, helper_demonstrated, u
 
 `payload` is the serialized `ServerMessage`, so replay shows exactly what the browser saw live.
 
-## 📁 Layout
+## Layout
 
 ```
 api/
@@ -149,7 +147,7 @@ api/
 └── .github/                         # CODEOWNERS, workflows/ci.yml
 ```
 
-## ⚙️ Configuration
+## Configuration
 
 Env vars only:
 
@@ -163,23 +161,23 @@ Env vars only:
 | `Agent__MaxConcurrentTurns` | Global limit on concurrent helper turns |
 | `Session__IdleMinutes` | Idle timeout, about 30 by default |
 
-## 🛠️ Local development
+## Local development
 
 No sandbox needed to start. Run Postgres and api from `platform`'s dev Compose with `Sandbox__Mode=Fake`: `FakeSandboxSession` plays a scripted cluster, and no broker is needed. Switch to `Real` once envmgr's Docker provider works.
 
-Installing `KubernetesLearning.Contracts` and `KubernetesLearning.SandboxClient` from GitHub Packages needs a personal access token with `read:packages`. See [contracts → Installing the packages](https://github.com/kubernetes-learning-platform/contracts#-installing-the-packages).
+Installing `KubernetesLearning.Contracts` and `KubernetesLearning.SandboxClient` from GitHub Packages needs a personal access token with `read:packages`. See [contracts → Installing the packages](https://github.com/kubernetes-learning-platform/contracts#installing-the-packages).
 
-## 👥 Ownership
+## Ownership
 
 `.github/CODEOWNERS` assigns `src/KubernetesLearning.Agent/`, `src/KubernetesLearning.Scenarios/` and `scenarios/` to Filip and everything else to Person 2. On a free plan with private repos, it requests reviews but can't enforce them.
 
 **Ships:** the `api` container image (multi-arch) → GHCR. It runs in Docker Compose on the Hetzner box, behind Caddy, and is only reachable over the WireGuard mesh, which is why a light auth mechanism is enough.
 
-## 📚 More
+## Further reading
 
 - [ARCHITECTURE §4 Services](https://github.com/kubernetes-learning-platform/docs/blob/main/ARCHITECTURE.md#4-services-and-their-entry-points) (api internals)
 - [ARCHITECTURE §6 Key flows](https://github.com/kubernetes-learning-platform/docs/blob/main/ARCHITECTURE.md#6-key-flows) (including control and terminal semantics)
 
-## 📄 License
+## License
 
 [MIT](LICENSE)
