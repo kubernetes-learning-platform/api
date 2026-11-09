@@ -2,11 +2,46 @@
 
 > **The ASP.NET Core backend (.NET 10):** auth, sessions, the WebSocket gateway, the session event log, scenarios, and the optional AI helper.
 
-Part of [**kubernetes-learning-platform**](https://github.com/kubernetes-learning-platform/docs), an AI tutor with a live Kubernetes lab. Start at the [docs hub](https://github.com/kubernetes-learning-platform/docs) for the big picture.
+Part of [**kubernetes-learning-platform**](https://github.com/kubernetes-learning-platform/docs), a live Kubernetes lab with an optional AI helper. Start at the [docs hub](https://github.com/kubernetes-learning-platform/docs) for the big picture.
 
 **Owner:** Person 2 (the Scenarios and Agent libraries and `scenarios/`: Filip) · **Status:** planned layout, scaffolding lands in M1.
 
 ---
+
+## 🧭 What this repo does
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/api-dark.svg">
+  <img src="assets/api-light.svg" width="100%" alt="Inside the api process. The browser calls the controllers over REST and the socket over WebSocket. The socket hands messages to a LiveSession, which uses the Scenarios library, the Agent library and SandboxClient. Events go to EventFanout, which appends them to Postgres and then sends them back out through the socket. The Provisioner publishes start and teardown requests to RabbitMQ, the Agent calls the LLM API, and SandboxClient talks gRPC to envmgr.">
+</picture>
+
+`api` is the backend, and the only thing the browser ever talks to. It knows who you are, which session is yours, which scenario you're on, and everything that has happened in the session so far. It doesn't run Kubernetes. Your cluster lives in a sandbox on another machine, and `api` is the go-between that also keeps the record.
+
+It is one process, built from three projects:
+
+- **`KubernetesLearning.Api`** is the part that faces the browser: login, sessions, the live socket, the database and the work queue.
+- **`KubernetesLearning.Scenarios`** runs scenarios. It sets up each step, runs the checks that decide whether the step is solved, and resets a step on request. There is no AI in it, so scenarios work with the helper off.
+- **`KubernetesLearning.Agent`** is the optional helper. It sends your question to an LLM and carries out the typed tools the LLM asks for. The LLM key lives here and never reaches the sandbox.
+
+| Part in the diagram | What it does |
+|---|---|
+| **Controllers** | Ordinary request-and-response calls: sign in, start or end a session, list scenarios, fetch a page of the event log |
+| **Socket** | The live two-way channel for one session. Keystrokes and chat go in; terminal output, cluster changes and helper replies come out |
+| **LiveSession** | One object in memory per running lab. It holds the link to the sandbox, the scenario runner and, if you use it, the helper |
+| **EventFanout** | Gives every outgoing message the next number in its session, saves it to Postgres, and only then sends it to the browser |
+| **Provisioner** | Asks for a sandbox, and later for its deletion, through the RabbitMQ work queue |
+| **SandboxClient** | The library from `sandbox` that talks to `envmgr`. `api` only sees its `ISandboxSession` interface |
+
+### Follow one keystroke
+
+1. You type in the terminal. The browser sends `TerminalInput` over the **socket**.
+2. The **LiveSession** passes it through **SandboxClient** to your VM, where a real shell receives it.
+3. The shell's output comes back the same way.
+4. **EventFanout** gives it a number, appends it to the event log, and then sends it to every browser tab watching the session.
+
+Step 4 is what makes two other features work. A browser that reconnects asks for everything after the last number it saw, and replay reads the same log from the start.
+
+The whole system at a glance is in the [docs hub](https://github.com/kubernetes-learning-platform/docs#readme).
 
 ## 🌐 REST controllers
 
