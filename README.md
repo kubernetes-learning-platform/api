@@ -169,7 +169,7 @@ Installing `KubernetesLearning.Contracts` and `KubernetesLearning.SandboxClient`
 
 ## Ownership
 
-`.github/CODEOWNERS` assigns `src/KubernetesLearning.Agent/`, `src/KubernetesLearning.Scenarios/` and `scenarios/` to Filip and everything else to Person 2. On a free plan with private repos, it requests reviews but can't enforce them.
+`src/KubernetesLearning.Agent/`, `src/KubernetesLearning.Scenarios/` and `scenarios/` are Filip's; everything else is Person 2's. `.github/CODEOWNERS` requests Filip's review on every PR, and merging needs one approval from anyone other than the author.
 
 **Ships:** the `api` container image (multi-arch) → GHCR. It runs in the stack on the course VM, behind Caddy, and is only reachable over Tailscale, which is why a light auth mechanism is enough. A merge to `main` publishes an image tagged with the commit SHA, and a manual deploy picks which one runs.
 
