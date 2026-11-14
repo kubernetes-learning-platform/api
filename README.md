@@ -35,7 +35,7 @@ It is a single process composed of three projects:
 ### Message flow
 
 1. The browser sends `TerminalInput` over the socket.
-2. The `LiveSession` forwards it through `SandboxClient` to the shell in the VM.
+2. The `LiveSession` forwards it through `SandboxClient` to the shell in the sandbox.
 3. The shell output returns along the same path.
 4. `EventFanout` assigns it a sequence number, appends it to the event log, and sends it to every browser connected to the session.
 
@@ -72,21 +72,21 @@ Starts arrive in bursts and capacity is limited, so requests wait in a RabbitMQ 
 2. The browser sees `SessionStatus{queued, position}`. `api` computes the position from its own `queued` sessions, because RabbitMQ doesn't report it.
 3. `ProvisionResult` carries the sandbox id and the `envmgr` address. `api` stores both and opens `Connect`. If the session was cancelled meanwhile, it publishes a teardown instead.
 4. A dead-lettered request marks the session failed and tells the browser.
-5. Ending a session publishes `TeardownRequest`, so a teardown survives a link drop.
+5. Ending a session publishes `TeardownRequest`, so a teardown survives an `envmgr` restart.
 
 `ISandboxProvisioner` hides all of this, so `Sandbox__Mode=Fake` needs no broker.
 
 ## Sandbox link
 
-`api` runs on the Hetzner box, and `envmgr` runs on the Proxmox box at home. They talk gRPC over the WireGuard mesh, so the link can drop ([ADR 0001](https://github.com/kubernetes-learning-platform/docs/blob/main/adr/0001-hosting-and-harness-transport.md)).
+`api` runs in the stack on the course VM, and `envmgr` runs as a systemd service on the same VM ([ADR 0003](https://github.com/kubernetes-learning-platform/docs/blob/main/adr/0003-course-vm-hosting.md)). They talk gRPC on the same machine, but `envmgr` is a separate process and can restart, so the link can still drop.
 
 When the `Connect` stream for a session breaks:
 1. The session goes `SessionStatus{reconnecting}`, and the browser shows it.
 2. In-flight agent tool calls fail with a retryable error, so the agent can retry instead of hanging.
-3. `SandboxClient` redials with backoff and jitter, because every session reconnects at once. The sandbox keeps running on the Proxmox box the whole time.
+3. `SandboxClient` redials with backoff and jitter, because every session reconnects at once. The sandbox keeps running the whole time.
 4. On reattach, the harness sends a fresh `TopologySnapshot`, which replaces `TopologyCache`, and the session is live again.
 
-Replays and the scenarios' recorded fallback sessions come from Postgres on the Hetzner box, so they still work while the Proxmox box is unreachable.
+Replays and the scenarios' recorded fallback sessions come from Postgres, so they still work when no sandbox can start.
 
 ## Scenarios library
 
@@ -154,7 +154,7 @@ Env vars only:
 | Variable | Purpose |
 |---|---|
 | `ConnectionStrings__Db` | Postgres connection string |
-| `RabbitMq__Url` | The work queue on the Hetzner box. `envmgr`'s address comes from each `ProvisionResult`. |
+| `RabbitMq__Url` | The work queue in the stack. `envmgr`'s address comes from each `ProvisionResult`. |
 | `Sandbox__Mode` | `Real` or `Fake` |
 | `Llm__Provider` · `Llm__ApiKey` | LLM provider and key. The key never leaves api. |
 | `Agent__TokenBudget` | Per-session token cap |
@@ -163,7 +163,7 @@ Env vars only:
 
 ## Local development
 
-No sandbox needed to start. Run Postgres and api from `platform`'s dev Compose with `Sandbox__Mode=Fake`: `FakeSandboxSession` plays a scripted cluster, and no broker is needed. Switch to `Real` once envmgr's Docker provider works.
+No sandbox needed to start. Run Postgres from `platform`'s dev Compose and api with `Sandbox__Mode=Fake`: `FakeSandboxSession` plays a scripted cluster, and no broker is needed. Switch to `Real` once envmgr's Docker provider works.
 
 Installing `KubernetesLearning.Contracts` and `KubernetesLearning.SandboxClient` from GitHub Packages needs a personal access token with `read:packages`. See [contracts → Installing the packages](https://github.com/kubernetes-learning-platform/contracts#installing-the-packages).
 
@@ -171,7 +171,7 @@ Installing `KubernetesLearning.Contracts` and `KubernetesLearning.SandboxClient`
 
 `.github/CODEOWNERS` assigns `src/KubernetesLearning.Agent/`, `src/KubernetesLearning.Scenarios/` and `scenarios/` to Filip and everything else to Person 2. On a free plan with private repos, it requests reviews but can't enforce them.
 
-**Ships:** the `api` container image (multi-arch) → GHCR. It runs in Docker Compose on the Hetzner box, behind Caddy, and is only reachable over the WireGuard mesh, which is why a light auth mechanism is enough.
+**Ships:** the `api` container image (multi-arch) → GHCR. It runs in the stack on the course VM, behind Caddy, and is only reachable over Tailscale, which is why a light auth mechanism is enough. A merge to `main` publishes an image tagged with the commit SHA, and a manual deploy picks which one runs.
 
 ## Further reading
 

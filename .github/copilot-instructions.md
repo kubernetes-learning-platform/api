@@ -17,7 +17,7 @@ This repo is the ASP.NET Core backend (.NET 10) of kubernetes-learning-platform,
 - **Limits.** One active session per user, and one scenario per session. The token budget is enforced per session, with a global limit on concurrent helper turns. Idle sessions are reaped.
 - **Work queue.** Publish with confirms and return "try again" if the broker can't be reached, because a message published while disconnected is lost. Handle redelivered results and dead letters. Only start and teardown use the queue: flag live traffic on it.
 - **Async correctness.** No sync-over-async, `CancellationToken`s passed through, no unbounded per-connection buffers, WebSocket close handled.
-- **Sandbox link drops.** envmgr is on another machine across the WireGuard mesh. A dropped `Connect` stream sets `SessionStatus{reconnecting}`, fails in-flight tool calls with a retryable error, and reconnects with backoff and jitter. The fresh snapshot after reattach replaces `TopologyCache`. Flag code that ends the session or hangs a tool call when the link drops.
+- **Sandbox link drops.** envmgr is a separate process on the same VM and can restart. A dropped `Connect` stream sets `SessionStatus{reconnecting}`, fails in-flight tool calls with a retryable error, and reconnects with backoff and jitter. The fresh snapshot after reattach replaces `TopologyCache`. Flag code that ends the session or hangs a tool call when the link drops.
 - **Schema changes** come with an EF Core migration.
 - Config is env vars only (`ConnectionStrings__Db`, `RabbitMq__Url`, `Sandbox__Mode`, `Llm__Provider`, `Llm__ApiKey`, `Agent__TokenBudget`, `Agent__MaxConcurrentTurns`, `Session__IdleMinutes`).
 
