@@ -1,0 +1,80 @@
+# AGENTS.md: api
+
+Instructions for AI coding agents working in this repository. `CLAUDE.md` is a symlink to this file, so Claude Code reads the same instructions.
+
+## What this repo is
+
+The ASP.NET Core backend (.NET 10) of kubernetes-learning-platform, a live Kubernetes lab with an optional AI helper. It is the only service the browser talks to. It handles auth, sessions, scenarios and the session event log, and relays between the browser and the learner's sandbox. It does not run Kubernetes.
+
+| Project | What it is | Owner |
+|---|---|---|
+| `KubernetesLearning.Api` | Auth, sessions, the WebSocket gateway, persistence, the work queue | Person 2 |
+| `KubernetesLearning.Scenarios` | Scenario catalog, runner and checks. No LLM dependency | Filip |
+| `KubernetesLearning.Agent` | The optional helper: LLM loop, typed tools, token budget | Filip |
+
+Entry points: 4 controllers (`Auth`, `Sessions`, `Scenarios`, `Events`), the WebSocket endpoint `/ws/sessions/{id}` with binary Protobuf `ClientMessage` / `ServerMessage`, and `/healthz`. Postgres through EF Core and Npgsql. RabbitMQ only for sandbox start and teardown.
+
+- **Owner:** Person 2. Filip owns `src/KubernetesLearning.Agent/`, `src/KubernetesLearning.Scenarios/` and `scenarios/`. Say so when a change touches them.
+- **Status:** planned layout. api#1 scaffolds the solution.
+- **Design:** `README.md` here, and ARCHITECTURE §4.1 and §6 in the `docs` repo. Where they disagree, the `docs` repo wins.
+
+## Layout
+
+```
+api/
+├── src/
+│   ├── KubernetesLearning.Api/        # Controllers/, Realtime/, Sessions/, Provisioning/, Auth/, Persistence/
+│   ├── KubernetesLearning.Scenarios/  # ScenarioCatalog, ScenarioDefinition, ScenarioRunner
+│   └── KubernetesLearning.Agent/      # AgentRunner, Llm/, Tools/, Budget/, Prompts/
+├── scenarios/                         # the first scenario, until the `scenarios` repo exists
+├── tests/                             # Api.Tests, Scenarios.Tests, Agent.Tests
+├── Dockerfile
+└── .github/                           # CODEOWNERS, workflows
+```
+
+## Build and check
+
+Not set up yet; api#1 adds the exact commands here. The checks CI will run:
+
+- `dotnet format --verify-no-changes`
+- `dotnet build` and `dotnet test`
+- `docker build`, and `GET /healthz` returns 200
+
+Run them before saying a change is done. Local development needs no sandbox: run Postgres from `platform`'s dev Compose and api with `Sandbox__Mode=Fake`. Installing the `contracts` and `SandboxClient` packages from GitHub Packages needs a personal access token with `read:packages`.
+
+## Code rules
+
+- **Persist, then broadcast.** Every `ServerMessage` gets the next per-session `seq` and is written to `session_events` before it is sent. `session_events` is append-only. Terminal output is batched before writing.
+- **The learner drives.** Terminal input and `ApplyManifest` are accepted by default and refused only while the helper is acting. A helper turn only starts from a learner's message or answer.
+- **Scenarios need no LLM.** `KubernetesLearning.Scenarios` never depends on the Agent or an LLM. Checks, hints and reset work with the helper off.
+- **The helper can't fake state.** The browser's topology comes only from the sandbox's snapshot and diff stream. The helper emits `ViewIntent`s, never topology.
+- **Agent boundaries.** `KubernetesLearning.Agent` has no ASP.NET Core or EF Core dependency. It talks to api through `IAgentEventSink` and to the sandbox through `ISandboxSession`.
+- **Secrets.** The LLM API key lives only in api config. It is never logged, returned to clients or sent to a sandbox.
+- **Limits.** One active session per user, one scenario per session, a per-session token budget, a global limit on concurrent helper turns, and an idle reaper.
+- **Work queue.** Publish with confirms and return "try again" when the broker is unreachable. Handle redelivered results and dead letters. Only start and teardown use the queue.
+- **Sandbox link drops.** `envmgr` can restart. A dropped `Connect` stream sets `SessionStatus{reconnecting}`, fails in-flight tool calls with a retryable error, and redials with backoff and jitter. The fresh snapshot after reattach replaces `TopologyCache`.
+- **Async.** No sync-over-async, `CancellationToken`s passed through, no unbounded per-connection buffers, WebSocket close handled.
+- **Schema changes** come with an EF Core migration.
+- **Types and config.** Message types come from the `KubernetesLearning.Contracts` package, never hand-written DTOs. The sandbox is reached only through `ISandboxSession`. Config is env vars only; `README.md` lists them.
+
+## Releases and dependencies
+
+- A merge to `main` publishes the `api` image to GHCR, tagged with the commit SHA. A manual deploy picks which one runs.
+- New `contracts` versions arrive as bot commits, `build(deps): bump contracts to X.Y.Z`. If the build fails after a bump, the bot opens a PR here instead; fix the code in that PR.
+
+## Commits, branches and PRs
+
+- **Always ask the user before creating a branch, committing or pushing.** Show the commit message when you ask.
+- **Commits:** Conventional Commits only, one line: `type: short description`, lowercase, no trailing period. No body. No `Co-Authored-By` or any other attribution.
+- **Types:** `feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`, `style`. Add `!` for a breaking change.
+- **Branches:** use the name in the `Branch:` line of the issue being worked on. Don't make one up. `gh issue develop <number> --name <branch> --checkout` creates it linked to the issue.
+- **Where changes land:** while the repo is still empty, documentation goes straight to `main`. From the setup issues on (api#1), every change goes through a PR from the issue's branch.
+- **PRs:** the title follows the commit format, at most 72 characters; it becomes the squash commit on `main`. The description is one or two plain sentences, plus `Closes #<number>`. Only Filip merges.
+
+## Keep docs in sync
+
+When a change touches this repo's design, layout, commands or conventions, update `AGENTS.md`, `README.md` and `.github/copilot-instructions.md` in the same change. If it changes a design fact, update ARCHITECTURE §4.1 in the `docs` repo too, and mention it to the user.
+
+## Writing style
+
+Plain, professional wording in docs and comments. No emoji, no marketing tone. Files are UTF-8 with LF line endings, following `.editorconfig`.

@@ -15,7 +15,7 @@ Part of [kubernetes-learning-platform](https://github.com/kubernetes-learning-pl
   <img src="assets/api-light.svg" width="100%" alt="Inside the api process. The browser calls the controllers over REST and the socket over WebSocket. The socket hands messages to a LiveSession, which uses the Scenarios library, the Agent library and SandboxClient. Events go to EventFanout, which appends them to Postgres and then sends them back out through the socket. The Provisioner publishes start and teardown requests to RabbitMQ, the Agent calls the LLM API, and SandboxClient talks gRPC to envmgr.">
 </picture>
 
-`api` is the backend and the only service the browser communicates with. It manages authentication, sessions, scenarios and the session event log. It does not run Kubernetes: each cluster runs in a sandbox on another machine, and `api` relays between the browser and that sandbox while recording the session.
+`api` is the backend and the only service the browser communicates with. It manages authentication, sessions, scenarios and the session event log. It does not run Kubernetes: each cluster runs in its own sandbox, managed by `envmgr`, and `api` relays between the browser and that sandbox while recording the session.
 
 It is a single process composed of three projects:
 
