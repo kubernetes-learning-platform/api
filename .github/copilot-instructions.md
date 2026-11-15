@@ -30,4 +30,5 @@ This repo is the ASP.NET Core backend (.NET 10) of kubernetes-learning-platform,
 
 ## Don't
 - Don't comment on formatting that `dotnet format` or `.editorconfig` handles.
+- Don't suggest changes to the lint copies (`.editorconfig`, `Directory.Build.props`, `.lint-sync`). They come from `platform/lint/`, and a hand edit fails CI.
 - Keep reviews short. Skip praise and summaries of the diff.

@@ -42,6 +42,8 @@ Not set up yet; api#1 adds the exact commands here. The checks CI will run:
 
 Run them before saying a change is done. Local development needs no sandbox: run Postgres from `platform`'s dev Compose and api with `Sandbox__Mode=Fake`. Installing the `contracts` and `SandboxClient` packages from GitHub Packages needs a personal access token with `read:packages`.
 
+**Lint configs.** `.editorconfig`, `Directory.Build.props` and `.lint-sync` are copies from `platform/lint/`: every warning is an error, `AnalysisLevel=latest-recommended`, and code style is enforced on build and by `dotnet format`. Don't edit them here; change `platform/lint/` instead, and CI fails a hand edit. Build settings for this repo go in the `.csproj` files or a nested `Directory.Build.props` that imports the root one. api#1 makes the first copy with `lint/sync.sh --dotnet`. Projects fresh from `dotnet new` don't pass as generated: run `dotnet format` once, because the templates ship CRLF line endings and a byte order mark, then seal the template's types and add their access modifiers.
+
 ## Code rules
 
 - **Persist, then broadcast.** Every `ServerMessage` gets the next per-session `seq` and is written to `session_events` before it is sent. `session_events` is append-only. Terminal output is batched before writing.
@@ -61,6 +63,7 @@ Run them before saying a change is done. Local development needs no sandbox: run
 
 - A merge to `main` publishes the `api` image to GHCR, tagged with the commit SHA. A manual deploy picks which one runs.
 - New `contracts` versions arrive as bot commits, `build(deps): bump contracts to X.Y.Z`. If the build fails after a bump, the bot opens a PR here instead; fix the code in that PR.
+- New lint configs arrive the same way, as `chore: sync lint configs` after a change to `platform/lint/`. If the new rules break the build, the bot opens a PR instead; fix the code in that PR.
 
 ## Commits, branches and PRs
 
@@ -69,7 +72,7 @@ Run them before saying a change is done. Local development needs no sandbox: run
 - **Types:** `feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`, `style`. Add `!` for a breaking change.
 - **Branches:** use the name in the `Branch:` line of the issue being worked on. Don't make one up. `gh issue develop <number> --name <branch> --checkout` creates it linked to the issue.
 - **Where changes land:** while the repo is still empty, documentation goes straight to `main`. From the setup issues on (api#1), every change goes through a PR from the issue's branch.
-- **PRs:** the title follows the commit format, at most 72 characters; it becomes the squash commit on `main`. The description is one or two plain sentences, plus `Closes #<number>`. Merging needs one approval from someone other than the author. Filip is requested as reviewer on every PR (`.github/CODEOWNERS`), and the author is assigned automatically. Only Filip merges.
+- **PRs:** the title follows the commit format, at most 72 characters; it becomes the squash commit on `main`. The description is one or two plain sentences, plus `Closes #<number>`. Merging needs one approval from someone other than the author, and the branch must be up to date with `main`. Filip is requested as reviewer on every PR (`.github/CODEOWNERS`), and the author is assigned automatically. Only Filip merges.
 - **Public repo:** everything committed is public at once. Never commit secrets, real `.env` files or personal data; push protection only catches known token formats.
 
 ## Keep docs in sync
