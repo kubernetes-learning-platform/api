@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/KubernetesLearning.Agent/KubernetesLearning.Agent.csproj" />
+    <Project Path="src/KubernetesLearning.Api/KubernetesLearning.Api.csproj" />
+    <Project Path="src/KubernetesLearning.Scenarios/KubernetesLearning.Scenarios.csproj" />
+  </Folder>
+</Solution>

@@ -15,7 +15,7 @@ The ASP.NET Core backend (.NET 10) of kubernetes-learning-platform, a live Kuber
 Entry points: 4 controllers (`Auth`, `Sessions`, `Scenarios`, `Events`), the WebSocket endpoint `/ws/sessions/{id}` with binary Protobuf `ClientMessage` / `ServerMessage`, and `/healthz`. Postgres through EF Core and Npgsql. RabbitMQ only for sandbox start and teardown.
 
 - **Owner:** Person 2. Filip owns `src/KubernetesLearning.Agent/`, `src/KubernetesLearning.Scenarios/` and `scenarios/`. Say so when a change touches them.
-- **Status:** planned layout. api#1 scaffolds the solution.
+- **Status:** scaffolded (api#1). The three projects are empty apart from `/healthz`, and build; there are no tests yet.
 - **Design:** `README.md` here, and ARCHITECTURE §4.1 and §6 in the `docs` repo. Where they disagree, the `docs` repo wins.
 
 ## Layout
@@ -27,22 +27,26 @@ api/
 │   ├── KubernetesLearning.Scenarios/  # ScenarioCatalog, ScenarioDefinition, ScenarioRunner
 │   └── KubernetesLearning.Agent/      # AgentRunner, Llm/, Tools/, Budget/, Prompts/
 ├── scenarios/                         # the first scenario, until the `scenarios` repo exists
-├── tests/                             # Api.Tests, Scenarios.Tests, Agent.Tests
-├── Dockerfile
-└── .github/                           # CODEOWNERS, workflows
+├── tests/                             # later: Api.Tests, Scenarios.Tests, Agent.Tests
+├── KubernetesLearning.Api.slnx
+├── global.json                        # SDK 10.0
+├── Directory.Build.props              # copy from platform/lint, like .editorconfig; .lint-sync records the commit
+├── Dockerfile                         # SDK build, chiseled ASP.NET runtime, port 8080
+└── .github/                           # CODEOWNERS, workflows/ci.yml
 ```
 
 ## Build and check
 
-Not set up yet; api#1 adds the exact commands here. The checks CI will run:
+The solution is `KubernetesLearning.Api.slnx`, with SDK 10.0 pinned in `global.json`. Project references go `Api → Scenarios`, `Api → Agent` and `Agent → Scenarios`, never the other way. There are no tests yet. Before saying a change is done, run what CI runs:
 
 - `dotnet format --verify-no-changes`
-- `dotnet build` and `dotnet test`
-- `docker build`, and `GET /healthz` returns 200
+- `dotnet build -c Release`
+- `../platform/lint/sync.sh --check .`, with `platform` at the commit in `.lint-sync`
+- `docker build --tag api:ci .`, then `GET /healthz` on the running container returns 200
 
-Run them before saying a change is done. Local development needs no sandbox: run Postgres from `platform`'s dev Compose and api with `Sandbox__Mode=Fake`. Installing the `contracts` and `SandboxClient` packages from GitHub Packages needs a personal access token with `read:packages`.
+`dotnet run --project src/KubernetesLearning.Api` listens on `http://localhost:5000`. CI (`.github/workflows/ci.yml`) reports `ci / .NET checks` (required in the `main` ruleset) and `Docker image`. Local development needs no sandbox: run Postgres from `platform`'s dev Compose and api with `Sandbox__Mode=Fake`. Installing the `contracts` and `SandboxClient` packages from GitHub Packages needs a personal access token with `read:packages`.
 
-**Lint configs.** `.editorconfig`, `Directory.Build.props` and `.lint-sync` are copies from `platform/lint/`: every warning is an error, `AnalysisLevel=latest-recommended`, and code style is enforced on build and by `dotnet format`. Don't edit them here; change `platform/lint/` instead, and CI fails a hand edit. Build settings for this repo go in the `.csproj` files or a nested `Directory.Build.props` that imports the root one. api#1 makes the first copy with `lint/sync.sh --dotnet`. Projects fresh from `dotnet new` don't pass as generated: run `dotnet format` once, because the templates ship CRLF line endings and a byte order mark, then seal the template's types and add their access modifiers.
+**Lint configs.** `.editorconfig`, `Directory.Build.props` and `.lint-sync` are copies from `platform/lint/`: every warning is an error, `AnalysisLevel=latest-recommended`, and code style is enforced on build and by `dotnet format`. Don't edit them here; change `platform/lint/` instead, and CI fails a hand edit. Build settings for this repo go in the `.csproj` files or a nested `Directory.Build.props` that imports the root one. They were made with `lint/sync.sh --dotnet`. Projects fresh from `dotnet new` don't pass as generated: run `dotnet format` once, because the templates ship CRLF line endings and a byte order mark, then seal the template's types and add their access modifiers.
 
 ## Code rules
 

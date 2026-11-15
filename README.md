@@ -4,7 +4,7 @@
 
 Part of [kubernetes-learning-platform](https://github.com/kubernetes-learning-platform/docs), a live Kubernetes lab with an optional AI helper. The [docs repository](https://github.com/kubernetes-learning-platform/docs) describes the overall system.
 
-**Owner:** Person 2 (the Scenarios and Agent libraries and `scenarios/`: Filip) · **Status:** planned layout, scaffolding lands in M1.
+**Owner:** Person 2 (the Scenarios and Agent libraries and `scenarios/`: Filip) · **Status:** scaffolded. The three projects are empty apart from `/healthz`, and build in CI; there are no tests yet.
 
 ---
 
@@ -142,8 +142,11 @@ api/
 │       ├── Llm/  Tools/  Budget/
 │       └── Prompts/system.md
 ├── scenarios/                       # the first scenario (Filip), until the `scenarios` repo exists
-├── tests/                           # Api.Tests, Scenarios.Tests, Agent.Tests
-├── Dockerfile
+├── tests/                           # later: Api.Tests, Scenarios.Tests, Agent.Tests
+├── KubernetesLearning.Api.slnx
+├── global.json                      # SDK 10.0
+├── Directory.Build.props            # copy from platform/lint, like .editorconfig; .lint-sync records the commit
+├── Dockerfile                       # SDK build, chiseled ASP.NET runtime, port 8080
 └── .github/                         # CODEOWNERS, workflows/ci.yml
 ```
 
@@ -162,6 +165,8 @@ Env vars only:
 | `Session__IdleMinutes` | Idle timeout, about 30 by default |
 
 ## Local development
+
+Build with `dotnet build -c Release` and check formatting with `dotnet format --verify-no-changes`. `dotnet run --project src/KubernetesLearning.Api` serves `/healthz` on `http://localhost:5000`, and `docker build --tag api .` builds the image, which listens on port 8080. There are no tests yet.
 
 No sandbox needed to start. Run Postgres from `platform`'s dev Compose and api with `Sandbox__Mode=Fake`: `FakeSandboxSession` plays a scripted cluster, and no broker is needed. Switch to `Real` once envmgr's Docker provider works.
 
