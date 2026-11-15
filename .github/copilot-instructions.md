@@ -12,7 +12,7 @@ This repo is the ASP.NET Core backend (.NET 10) of kubernetes-learning-platform,
 - **The learner drives.** Terminal input and `ApplyManifest` are accepted by default and refused only while the helper is acting. A helper turn only starts from a learner's message or answer. Flag any other way to start one.
 - **Scenarios need no LLM.** `KubernetesLearning.Scenarios` has no dependency on the Agent or an LLM, and checks, hints and reset must work with the helper off.
 - **The helper can't fake state.** The topology the browser sees comes only from the sandbox's snapshot/diff stream. The helper emits `ViewIntent`s (focus, highlight, annotate) but never topology.
-- **Agent library boundaries.** `KubernetesLearning.Agent` has no ASP.NET Core or EF Core dependency. It talks to api through `IAgentEventSink` and to the sandbox through `ISandboxSession`.
+- **Agent library boundaries.** `KubernetesLearning.Agent` has no ASP.NET Core or EF Core dependency. Project references go `Api → Scenarios`, `Api → Agent` and `Agent → Scenarios`; flag any reference the other way. It talks to api through `IAgentEventSink` and to the sandbox through `ISandboxSession`.
 - **Secrets.** The LLM API key lives only in api config. It's never logged, never returned to clients, never sent to the sandbox.
 - **Limits.** One active session per user, and one scenario per session. The token budget is enforced per session, with a global limit on concurrent helper turns. Idle sessions are reaped.
 - **Work queue.** Publish with confirms and return "try again" if the broker can't be reached, because a message published while disconnected is lost. Handle redelivered results and dead letters. Only start and teardown use the queue: flag live traffic on it.
@@ -27,6 +27,7 @@ This repo is the ASP.NET Core backend (.NET 10) of kubernetes-learning-platform,
 ## Project-wide rules
 - PR titles are Conventional Commits (`feat: short description`), one line, at most 72 characters, no trailing period.
 - Files are UTF-8 with LF line endings.
+- CI runs `platform`'s `dotnet-ci` (lint copies, format check, Release build), and builds the Docker image without running it. There are no tests yet.
 
 ## Don't
 - Don't comment on formatting that `dotnet format` or `.editorconfig` handles.
