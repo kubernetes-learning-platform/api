@@ -27,7 +27,7 @@ This repo is the ASP.NET Core backend (.NET 10) of kubernetes-learning-platform,
 ## Project-wide rules
 - PR titles are Conventional Commits (`feat: short description`), one line, at most 72 characters, no trailing period.
 - Files are UTF-8 with LF line endings.
-- CI runs `platform`'s `dotnet-ci` (lint copies, format check, Release build), and builds the Docker image without running it. There are no tests yet.
+- CI on PRs runs `platform`'s `dotnet-ci` (lint copies, format check, Release build). The image is built and pushed only on merges to `main`. There are no tests yet.
 
 ## Don't
 - Don't comment on formatting that `dotnet format` or `.editorconfig` handles.
