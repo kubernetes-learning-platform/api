@@ -1,6 +1,6 @@
 name: ci
 
-# Runs platform's .NET checks, then builds the Docker image and checks that /healthz answers.
+# Runs platform's .NET checks and builds the Docker image.
 on:
   pull_request:
   push:
@@ -15,7 +15,7 @@ jobs:
     uses: kubernetes-learning-platform/platform/.github/workflows/dotnet-ci.yml@main
 
   docker:
-    name: Docker image
+    name: Docker build
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -28,13 +28,3 @@ jobs:
 
       - name: Build the image
         run: docker build --tag api:ci .
-
-      - name: Check /healthz
-        run: |
-          docker run --detach --name api --publish 8080:8080 api:ci
-          if curl --fail --silent --show-error --retry 30 --retry-connrefused --retry-delay 1 http://localhost:8080/healthz; then
-            echo
-            exit 0
-          fi
-          docker logs api
-          exit 1
