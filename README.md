@@ -166,7 +166,7 @@ Env vars only:
 
 ## Local development
 
-Build with `dotnet build -c Release` and check formatting with `dotnet format --verify-no-changes`. `dotnet run --project src/KubernetesLearning.Api` serves `/healthz` on `http://localhost:5000`, and `docker build --tag api .` builds the image, which listens on port 8080. There are no tests yet.
+Build with `dotnet build -c Release` and check formatting with `dotnet format --verify-no-changes`. `dotnet run --project src/KubernetesLearning.Api` serves `/healthz` on `http://localhost:5149` (set in `Properties/launchSettings.json`, used only by `dotnet run`), and `docker build --tag api .` builds the image, which listens on port 8080. There are no tests yet.
 
 No sandbox needed to start. Run Postgres from `platform`'s dev Compose and api with `Sandbox__Mode=Fake`: `FakeSandboxSession` plays a scripted cluster, and no broker is needed. Switch to `Real` once envmgr's Docker provider works.
 
