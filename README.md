@@ -147,7 +147,7 @@ api/
 ├── global.json                      # SDK 10.0
 ├── Directory.Build.props            # copy from platform/lint, like .editorconfig; .lint-sync records the commit
 ├── Dockerfile                       # SDK build, chiseled ASP.NET runtime, port 8080
-└── .github/                         # CODEOWNERS, workflows/ci.yml
+└── .github/                         # CODEOWNERS, workflows/: ci.yml, and contracts-bump.yml and lint-sync.yml for the update bot
 ```
 
 ## Configuration
