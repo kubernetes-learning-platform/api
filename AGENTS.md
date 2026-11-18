@@ -32,7 +32,7 @@ api/
 ├── global.json                        # SDK 10.0
 ├── Directory.Build.props              # copy from platform/lint, like .editorconfig; .lint-sync records the commit
 ├── Dockerfile                         # SDK build, chiseled ASP.NET runtime, port 8080
-└── .github/                           # CODEOWNERS, workflows/ci.yml
+└── .github/                           # CODEOWNERS, workflows/: ci.yml, and contracts-bump.yml and lint-sync.yml for the update bot
 ```
 
 ## Build and check
@@ -65,8 +65,9 @@ The solution is `KubernetesLearning.Api.slnx`, with SDK 10.0 pinned in `global.j
 ## Releases and dependencies
 
 - A merge to `main` publishes the `api` image to GHCR, tagged with the commit SHA. A manual deploy picks which one runs.
-- New `contracts` versions arrive as bot commits, `build(deps): bump contracts to X.Y.Z`. If the build fails after a bump, the bot opens a PR here instead; fix the code in that PR.
-- New lint configs arrive the same way, as `chore: sync lint configs` after a change to `platform/lint/`. If the new rules break the build, the bot opens a PR instead; fix the code in that PR.
+- New `contracts` versions arrive as bot commits, `build(deps): bump contracts to X.Y.Z`, from `.github/workflows/contracts-bump.yml`, which calls `platform`'s update bot on `repository_dispatch`. The bot runs `platform`'s `dotnet-ci` on the commit before it pushes to `main`. If that fails, it opens a PR here instead; fix the code in that PR.
+- New lint configs arrive the same way, as `chore: sync lint configs` from `.github/workflows/lint-sync.yml` after a change to `platform/lint/`. If the new rules break the build, the bot opens a PR instead; fix the code in that PR.
+- When you add `KubernetesLearning.Contracts`, pin one exact version on one line, preferably once in `Directory.Packages.props` with Central Package Management, so the bot can find and bump it. See `platform`'s README, Update bot.
 
 ## Commits, branches and PRs
 

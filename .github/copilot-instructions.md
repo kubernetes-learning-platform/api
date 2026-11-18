@@ -28,6 +28,7 @@ This repo is the ASP.NET Core backend (.NET 10) of kubernetes-learning-platform,
 - PR titles are Conventional Commits (`feat: short description`), one line, at most 72 characters, no trailing period.
 - Files are UTF-8 with LF line endings.
 - CI on PRs runs `platform`'s `dotnet-ci` (lint copies, format check, Release build). The image is built and pushed only on merges to `main`. There are no tests yet.
+- `contracts-bump.yml` and `lint-sync.yml` run `platform`'s update bot on `repository_dispatch`, never on PRs. Flag a `KubernetesLearning.Contracts` reference that doesn't pin one exact version on one line, because the bot can't bump it.
 
 ## Don't
 - Don't comment on formatting that `dotnet format` or `.editorconfig` handles.
