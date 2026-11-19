@@ -30,6 +30,8 @@ api/
 ├── tests/                             # later: Api.Tests, Scenarios.Tests, Agent.Tests
 ├── KubernetesLearning.Api.slnx
 ├── global.json                        # SDK 10.0
+├── nuget.config                       # nuget.org, plus GitHub Packages for KubernetesLearning.*
+├── Directory.Packages.props           # package versions, including KubernetesLearning.Contracts
 ├── Directory.Build.props              # copy from platform/lint, like .editorconfig; .lint-sync records the commit
 ├── Dockerfile                         # SDK build, chiseled ASP.NET runtime, port 8080
 └── .github/                           # CODEOWNERS, workflows/: ci.yml, and contracts-bump.yml and lint-sync.yml for the update bot
@@ -43,7 +45,7 @@ The solution is `KubernetesLearning.Api.slnx`, with SDK 10.0 pinned in `global.j
 - `dotnet build -c Release`
 - `../platform/lint/sync.sh --check .`, with `platform` at the commit in `.lint-sync`
 
-`dotnet run --project src/KubernetesLearning.Api` listens on `http://localhost:5149`, set in `Properties/launchSettings.json`, which only `dotnet run` and IDEs read. The container listens on 8080. CI (`.github/workflows/ci.yml`) reports `ci / .NET checks` (required in the `main` ruleset) on PRs. The image is built and pushed to GHCR only on merges to `main` (platform#19, not set up yet), and the deploy smoke-tests `/healthz` on the stack (platform#15). `docker build --tag api .` builds it locally; the Dockerfile copies all of `src/`, so a new project needs no Dockerfile change. Local development needs no sandbox: run Postgres from `platform`'s dev Compose and api with `Sandbox__Mode=Fake`. Installing the `contracts` and `SandboxClient` packages from GitHub Packages needs a personal access token with `read:packages`.
+`dotnet run --project src/KubernetesLearning.Api` listens on `http://localhost:5149`, set in `Properties/launchSettings.json`, which only `dotnet run` and IDEs read. The container listens on 8080. CI (`.github/workflows/ci.yml`) reports `ci / .NET checks` (required in the `main` ruleset) on PRs. The image is built and pushed to GHCR only on merges to `main` (platform#19, not set up yet), and the deploy smoke-tests `/healthz` on the stack (platform#15). `docker build --secret id=github-packages-token,env=GITHUB_PACKAGES_TOKEN --tag api .` builds it locally; the Dockerfile copies all of `src/`, so a new project needs no Dockerfile change. Local development needs no sandbox: run Postgres from `platform`'s dev Compose and api with `Sandbox__Mode=Fake`. Restoring needs `GITHUB_PACKAGES_TOKEN`, because GitHub Packages wants a token even for public packages: `gh auth refresh --hostname github.com --scopes read:packages` once, then `export GITHUB_PACKAGES_TOKEN="$(gh auth token)"`. `nuget.config` maps `KubernetesLearning.*` to GitHub Packages and everything else to nuget.org. CI passes its `GITHUB_TOKEN`, so every workflow job that restores grants `packages: read`.
 
 **Lint configs.** `.editorconfig`, `Directory.Build.props` and `.lint-sync` are copies from `platform/lint/`: every warning is an error, `AnalysisLevel=latest-recommended`, and code style is enforced on build and by `dotnet format`. Don't edit them here; change `platform/lint/` instead, and CI fails a hand edit. Build settings for this repo go in the `.csproj` files or a nested `Directory.Build.props` that imports the root one. They were made with `lint/sync.sh --dotnet`. Projects fresh from `dotnet new` don't pass as generated: run `dotnet format` once, because the templates ship CRLF line endings and a byte order mark, then seal the template's types and add their access modifiers.
 
@@ -67,7 +69,7 @@ The solution is `KubernetesLearning.Api.slnx`, with SDK 10.0 pinned in `global.j
 - A merge to `main` publishes the `api` image to GHCR, tagged with the commit SHA. A manual deploy picks which one runs.
 - New `contracts` versions arrive as bot commits, `build(deps): bump contracts to X.Y.Z`, from `.github/workflows/contracts-bump.yml`, which calls `platform`'s update bot on `repository_dispatch`. The bot runs `platform`'s `dotnet-ci` on the commit before it pushes to `main`. If that fails, it opens a PR here instead; fix the code in that PR.
 - New lint configs arrive the same way, as `chore: sync lint configs` from `.github/workflows/lint-sync.yml` after a change to `platform/lint/`. If the new rules break the build, the bot opens a PR instead; fix the code in that PR.
-- When you add `KubernetesLearning.Contracts`, pin one exact version on one line, preferably once in `Directory.Packages.props` with Central Package Management, so the bot can find and bump it. See `platform`'s README, Update bot.
+- `KubernetesLearning.Contracts` is pinned once, on one line in `Directory.Packages.props` (Central Package Management), and every project references it without a version, so the bot can find and bump it. New packages, `KubernetesLearning.SandboxClient` included, get their version there too. See `platform`'s README, Update bot.
 
 ## Commits, branches and PRs
 
