@@ -1,9 +1,11 @@
+# syntax=docker/dockerfile:1
 # Publishes api with the .NET SDK and runs it on the chiseled ASP.NET runtime as a non-root user, on port 8080.
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
-COPY global.json Directory.Build.props .editorconfig ./
+COPY global.json Directory.Build.props Directory.Packages.props nuget.config .editorconfig ./
 COPY src/ src/
-RUN dotnet publish src/KubernetesLearning.Api --configuration Release --output /app
+RUN --mount=type=secret,id=github-packages-token,env=GITHUB_PACKAGES_TOKEN \
+    dotnet publish src/KubernetesLearning.Api --configuration Release --output /app
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled
 WORKDIR /app

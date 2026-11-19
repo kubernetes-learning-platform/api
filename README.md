@@ -145,6 +145,8 @@ api/
 ├── tests/                           # later: Api.Tests, Scenarios.Tests, Agent.Tests
 ├── KubernetesLearning.Api.slnx
 ├── global.json                      # SDK 10.0
+├── nuget.config                     # nuget.org, plus GitHub Packages for KubernetesLearning.*
+├── Directory.Packages.props         # package versions, including KubernetesLearning.Contracts
 ├── Directory.Build.props            # copy from platform/lint, like .editorconfig; .lint-sync records the commit
 ├── Dockerfile                       # SDK build, chiseled ASP.NET runtime, port 8080
 └── .github/                         # CODEOWNERS, workflows/: ci.yml, and contracts-bump.yml and lint-sync.yml for the update bot
@@ -164,13 +166,31 @@ Env vars only:
 | `Agent__MaxConcurrentTurns` | Global limit on concurrent helper turns |
 | `Session__IdleMinutes` | Idle timeout, about 30 by default |
 
+## Packages
+
+`KubernetesLearning.Contracts`, and later `KubernetesLearning.SandboxClient`, come from GitHub Packages, which needs a token even to read a public package. `nuget.config` maps `KubernetesLearning.*` to the organization's feed and reads the token from `GITHUB_PACKAGES_TOKEN`; everything else comes from nuget.org. Once, give the GitHub CLI the `read:packages` scope, then export the token before restoring:
+
+```bash
+gh auth refresh --hostname github.com --scopes read:packages
+```
+
+```bash
+export GITHUB_PACKAGES_TOKEN="$(gh auth token)"
+```
+
+A classic personal access token with `read:packages` works too. CI passes its own `GITHUB_TOKEN`, and the image build takes the token as a build secret:
+
+```bash
+docker build --secret id=github-packages-token,env=GITHUB_PACKAGES_TOKEN --tag api .
+```
+
+The version is pinned once, in `Directory.Packages.props` (Central Package Management), and the projects reference the package without a version, so the update bot can bump it.
+
 ## Local development
 
-Build with `dotnet build -c Release` and check formatting with `dotnet format --verify-no-changes`. `dotnet run --project src/KubernetesLearning.Api` serves `/healthz` on `http://localhost:5149` (set in `Properties/launchSettings.json`, used only by `dotnet run`), and `docker build --tag api .` builds the image, which listens on port 8080. There are no tests yet.
+Set `GITHUB_PACKAGES_TOKEN` first (see [Packages](#packages)). Build with `dotnet build -c Release` and check formatting with `dotnet format --verify-no-changes`. `dotnet run --project src/KubernetesLearning.Api` serves `/healthz` on `http://localhost:5149` (set in `Properties/launchSettings.json`, used only by `dotnet run`), and the `docker build` command under [Packages](#packages) builds the image, which listens on port 8080. There are no tests yet.
 
 No sandbox needed to start. Run Postgres from `platform`'s dev Compose and api with `Sandbox__Mode=Fake`: `FakeSandboxSession` plays a scripted cluster, and no broker is needed. Switch to `Real` once envmgr's Docker provider works.
-
-Installing `KubernetesLearning.Contracts` and `KubernetesLearning.SandboxClient` from GitHub Packages needs a personal access token with `read:packages`. See [contracts → Installing the packages](https://github.com/kubernetes-learning-platform/contracts#installing-the-packages).
 
 ## Ownership
 

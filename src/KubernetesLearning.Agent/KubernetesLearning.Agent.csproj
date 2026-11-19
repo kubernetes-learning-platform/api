@@ -6,6 +6,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="KubernetesLearning.Contracts" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\KubernetesLearning.Scenarios\KubernetesLearning.Scenarios.csproj" />
   </ItemGroup>
 
