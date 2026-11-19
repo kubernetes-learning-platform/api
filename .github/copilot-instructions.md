@@ -19,10 +19,10 @@ This repo is the ASP.NET Core backend (.NET 10) of kubernetes-learning-platform,
 - **Async correctness.** No sync-over-async, `CancellationToken`s passed through, no unbounded per-connection buffers, WebSocket close handled.
 - **Sandbox link drops.** envmgr is a separate process on the same VM and can restart. A dropped `Connect` stream sets `SessionStatus{reconnecting}`, fails in-flight tool calls with a retryable error, and reconnects with backoff and jitter. The fresh snapshot after reattach replaces `TopologyCache`. Flag code that ends the session or hangs a tool call when the link drops.
 - **Schema changes** come with an EF Core migration.
-- Config is env vars only (`ConnectionStrings__Db`, `RabbitMq__Url`, `Sandbox__Mode`, `Llm__Provider`, `Llm__ApiKey`, `Agent__TokenBudget`, `Agent__MaxConcurrentTurns`, `Session__IdleMinutes`).
+- Config is env vars only (`ConnectionStrings__Db`, `RabbitMq__Url`, `Sandbox__Mode`, `Sandbox__FakeScript`, `Llm__Provider`, `Llm__ApiKey`, `Agent__TokenBudget`, `Agent__MaxConcurrentTurns`, `Session__IdleMinutes`).
 
 ## Ownership
-`src/KubernetesLearning.Agent/`, `src/KubernetesLearning.Scenarios/` and `scenarios/` belong to Filip. Everything else belongs to Person 2.
+`src/KubernetesLearning.Agent/`, `src/KubernetesLearning.Scenarios/` and `scenarios/` belong to Filip. Everything else is shared by Person 2 and Person 3, who split the work by feature.
 
 ## Project-wide rules
 - PR titles are Conventional Commits (`feat: short description`), one line, at most 72 characters, no trailing period.

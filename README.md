@@ -4,7 +4,7 @@
 
 Part of [kubernetes-learning-platform](https://github.com/kubernetes-learning-platform/docs), a live Kubernetes lab with an optional AI helper. The [docs repository](https://github.com/kubernetes-learning-platform/docs) describes the overall system.
 
-**Owner:** Person 2 (the Scenarios and Agent libraries and `scenarios/`: Filip) · **Status:** scaffolded. The three projects are empty apart from `/healthz`, and build in CI; there are no tests yet.
+**Owners:** Person 2 and Person 3, by feature (the Scenarios and Agent libraries and `scenarios/`: Filip) · **Status:** scaffolded. The three projects are empty apart from `/healthz`, and build in CI; there are no tests yet.
 
 ---
 
@@ -45,9 +45,9 @@ Storing each message before sending it supports two features. A reconnecting bro
 
 | Controller | Routes | Purpose |
 |---|---|---|
-| `AuthController` | `POST /api/auth/login` · `POST /api/auth/logout` · `GET /api/auth/me` | Delegates to `IAuthProvider`. The mechanism is **OPEN**; the interface is fixed. |
+| `AuthController` | `POST /api/auth/login` · `POST /api/auth/logout` · `GET /api/auth/me` | Delegates to `IAuthProvider`. For now that's `NameOnlyAuthProvider`: you sign in with a display name, and the name is the account. A sturdier mechanism can replace it later (OPEN). |
 | `SessionsController` | `POST /api/sessions` · `GET /api/sessions` · `GET /api/sessions/{id}` · `DELETE /api/sessions/{id}` | Start, list, inspect and end sessions. A start takes an optional `scenarioId`; without one you get a blank cluster. One active session per user, and one scenario per session. |
-| `ScenariosController` | `GET /api/scenarios` · `GET /api/scenarios/{id}` | The scenario catalog for the home screen, with this account's progress. Goals and hints are included; the `helper` notes and `solution` are not. |
+| `ScenariosController` | `GET /api/scenarios` · `GET /api/scenarios/{id}` | The scenario catalog for the home screen, with this account's progress. Goals and hint counts are included. Hint text arrives over the socket, and the `helper` notes and `solution` are never sent. |
 | `EventsController` | `GET /api/sessions/{id}/events?afterSeq=&limit=` | Event log pages for the timeline and replay, as protobuf `EventBatch`. |
 
 Request and response bodies are Protobuf messages from [`contracts`](https://github.com/kubernetes-learning-platform/contracts) (`rest.proto`), serialized as proto3 JSON. Health check: `/healthz`.
@@ -129,12 +129,12 @@ scenario_progress (user_id, scenario_id, step_id, status, helper_demonstrated, u
 ```
 api/
 ├── src/
-│   ├── KubernetesLearning.Api/      # Person 2
+│   ├── KubernetesLearning.Api/      # Person 2 and Person 3
 │   │   ├── Controllers/             # Auth, Sessions, Scenarios, Events
 │   │   ├── Realtime/                # SessionSocketEndpoint, EventFanout, TopologyCache
 │   │   ├── Sessions/                # SessionService, LiveSession, IdleReaper
 │   │   ├── Provisioning/            # ISandboxProvisioner, RabbitMqProvisioner, fake
-│   │   ├── Auth/                    # IAuthProvider + implementation
+│   │   ├── Auth/                    # IAuthProvider, NameOnlyAuthProvider
 │   │   └── Persistence/             # AppDbContext, EventStore, Entities/, Migrations/
 │   ├── KubernetesLearning.Scenarios/ # Filip
 │   │   └── ScenarioCatalog, ScenarioDefinition, ScenarioRunner
@@ -190,11 +190,11 @@ The version is pinned once, in `Directory.Packages.props` (Central Package Manag
 
 Set `GITHUB_PACKAGES_TOKEN` first (see [Packages](#packages)). Build with `dotnet build -c Release` and check formatting with `dotnet format --verify-no-changes`. `dotnet run --project src/KubernetesLearning.Api` serves `/healthz` on `http://localhost:5149` (set in `Properties/launchSettings.json`, used only by `dotnet run`), and the `docker build` command under [Packages](#packages) builds the image, which listens on port 8080. There are no tests yet.
 
-No sandbox needed to start. Run Postgres from `platform`'s dev Compose and api with `Sandbox__Mode=Fake`: `FakeSandboxSession` plays a scripted cluster, and no broker is needed. Switch to `Real` once envmgr's Docker provider works.
+No sandbox needed. Run Postgres and Caddy from `platform`'s dev Compose and api with `Sandbox__Mode=Fake`: `FakeSandboxSession` plays a scripted cluster, picked with `Sandbox__FakeScript`, and no broker is needed. Caddy serves `web` and `api` together on `http://localhost:8080`, with the same routes as production. `Real` mode comes in Milestone 2.
 
 ## Ownership
 
-`src/KubernetesLearning.Agent/`, `src/KubernetesLearning.Scenarios/` and `scenarios/` are Filip's; everything else is Person 2's. `.github/CODEOWNERS` requests Filip's review on every PR, and merging needs one approval from anyone other than the author.
+`src/KubernetesLearning.Agent/`, `src/KubernetesLearning.Scenarios/` and `scenarios/` are Filip's; everything else is shared by Person 2 and Person 3, who split the work by feature. `.github/CODEOWNERS` requests Filip's review on every PR, and merging needs one approval from anyone other than the author.
 
 **Ships:** the `api` container image (multi-arch) → GHCR. It runs in the stack on the course VM, behind Caddy, and is only reachable over Tailscale, which is why a light auth mechanism is enough. A merge to `main` publishes an image tagged with the commit SHA, and a manual deploy picks which one runs.
 

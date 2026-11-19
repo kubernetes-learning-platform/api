@@ -8,13 +8,13 @@ The ASP.NET Core backend (.NET 10) of kubernetes-learning-platform, a live Kuber
 
 | Project | What it is | Owner |
 |---|---|---|
-| `KubernetesLearning.Api` | Auth, sessions, the WebSocket gateway, persistence, the work queue | Person 2 |
+| `KubernetesLearning.Api` | Auth, sessions, the WebSocket gateway, persistence, the work queue | Person 2 and Person 3, by feature |
 | `KubernetesLearning.Scenarios` | Scenario catalog, runner and checks. No LLM dependency | Filip |
 | `KubernetesLearning.Agent` | The optional helper: LLM loop, typed tools, token budget | Filip |
 
 Entry points: 4 controllers (`Auth`, `Sessions`, `Scenarios`, `Events`), the WebSocket endpoint `/ws/sessions/{id}` with binary Protobuf `ClientMessage` / `ServerMessage`, and `/healthz`. Postgres through EF Core and Npgsql. RabbitMQ only for sandbox start and teardown.
 
-- **Owner:** Person 2. Filip owns `src/KubernetesLearning.Agent/`, `src/KubernetesLearning.Scenarios/` and `scenarios/`. Say so when a change touches them.
+- **Owners:** Person 2 and Person 3, who split `api` and `web` by feature. Filip owns `src/KubernetesLearning.Agent/`, `src/KubernetesLearning.Scenarios/` and `scenarios/`. Say so when a change touches them.
 - **Status:** scaffolded (api#1). The three projects are empty apart from `/healthz`, and build; there are no tests yet.
 - **Design:** `README.md` here, and ARCHITECTURE §4.1 and §6 in the `docs` repo. Where they disagree, the `docs` repo wins.
 
@@ -37,6 +37,8 @@ api/
 └── .github/                           # CODEOWNERS, workflows/: ci.yml, and contracts-bump.yml and lint-sync.yml for the update bot
 ```
 
+Scripts, when there are any, go in `scripts/`.
+
 ## Build and check
 
 The solution is `KubernetesLearning.Api.slnx`, with SDK 10.0 pinned in `global.json`. Project references go `Api → Scenarios`, `Api → Agent` and `Agent → Scenarios`, never the other way. There are no tests yet. Before saying a change is done, run what CI runs:
@@ -45,7 +47,7 @@ The solution is `KubernetesLearning.Api.slnx`, with SDK 10.0 pinned in `global.j
 - `dotnet build -c Release`
 - `../platform/lint/sync.sh --check .`, with `platform` at the commit in `.lint-sync`
 
-`dotnet run --project src/KubernetesLearning.Api` listens on `http://localhost:5149`, set in `Properties/launchSettings.json`, which only `dotnet run` and IDEs read. The container listens on 8080. CI (`.github/workflows/ci.yml`) reports `ci / .NET checks` (required in the `main` ruleset) on PRs. The image is built and pushed to GHCR only on merges to `main` (platform#19, not set up yet), and the deploy smoke-tests `/healthz` on the stack (platform#15). `docker build --secret id=github-packages-token,env=GITHUB_PACKAGES_TOKEN --tag api .` builds it locally; the Dockerfile copies all of `src/`, so a new project needs no Dockerfile change. Local development needs no sandbox: run Postgres from `platform`'s dev Compose and api with `Sandbox__Mode=Fake`. Restoring needs `GITHUB_PACKAGES_TOKEN`, because GitHub Packages wants a token even for public packages: `gh auth refresh --hostname github.com --scopes read:packages` once, then `export GITHUB_PACKAGES_TOKEN="$(gh auth token)"`. `nuget.config` maps `KubernetesLearning.*` to GitHub Packages and everything else to nuget.org. CI passes its `GITHUB_TOKEN`, so every workflow job that restores grants `packages: read`.
+`dotnet run --project src/KubernetesLearning.Api` listens on `http://localhost:5149`, set in `Properties/launchSettings.json`, which only `dotnet run` and IDEs read. The container listens on 8080. CI (`.github/workflows/ci.yml`) reports `ci / .NET checks` (required in the `main` ruleset) on PRs. The image is built and pushed to GHCR only on merges to `main` (platform#19, not set up yet), and the deploy smoke-tests `/healthz` on the stack (platform#15). `docker build --secret id=github-packages-token,env=GITHUB_PACKAGES_TOKEN --tag api .` builds it locally; the Dockerfile copies all of `src/`, so a new project needs no Dockerfile change. Local development needs no sandbox: run Postgres and Caddy from `platform`'s dev Compose and api with `Sandbox__Mode=Fake`, and open `http://localhost:8080`, where Caddy serves `web` and `api` on one origin. Restoring needs `GITHUB_PACKAGES_TOKEN`, because GitHub Packages wants a token even for public packages: `gh auth refresh --hostname github.com --scopes read:packages` once, then `export GITHUB_PACKAGES_TOKEN="$(gh auth token)"`. `nuget.config` maps `KubernetesLearning.*` to GitHub Packages and everything else to nuget.org. CI passes its `GITHUB_TOKEN`, so every workflow job that restores grants `packages: read`.
 
 **Lint configs.** `.editorconfig`, `Directory.Build.props` and `.lint-sync` are copies from `platform/lint/`: every warning is an error, `AnalysisLevel=latest-recommended`, and code style is enforced on build and by `dotnet format`. Don't edit them here; change `platform/lint/` instead, and CI fails a hand edit. Build settings for this repo go in the `.csproj` files or a nested `Directory.Build.props` that imports the root one. They were made with `lint/sync.sh --dotnet`. Projects fresh from `dotnet new` don't pass as generated: run `dotnet format` once, because the templates ship CRLF line endings and a byte order mark, then seal the template's types and add their access modifiers.
 
