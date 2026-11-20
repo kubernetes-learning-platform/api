@@ -148,6 +148,7 @@ api/
 ├── nuget.config                     # nuget.org, plus GitHub Packages for KubernetesLearning.*
 ├── Directory.Packages.props         # package versions, including KubernetesLearning.Contracts
 ├── Directory.Build.props            # copy from platform/lint, like .editorconfig; .lint-sync records the commit
+├── compose.yaml                     # local dev only: includes platform's dev Compose (Postgres, Caddy)
 ├── Dockerfile                       # SDK build, chiseled ASP.NET runtime, port 8080
 └── .github/                         # CODEOWNERS, workflows/: ci.yml, and contracts-bump.yml and lint-sync.yml for the update bot
 ```
@@ -190,7 +191,7 @@ The version is pinned once, in `Directory.Packages.props` (Central Package Manag
 
 Set `GITHUB_PACKAGES_TOKEN` first (see [Packages](#packages)). Build with `dotnet build -c Release` and check formatting with `dotnet format --verify-no-changes`. `dotnet run --project src/KubernetesLearning.Api` serves `/healthz` on `http://localhost:5149` (set in `Properties/launchSettings.json`, used only by `dotnet run`), and the `docker build` command under [Packages](#packages) builds the image, which listens on port 8080. There are no tests yet.
 
-No sandbox needed. Run Postgres and Caddy from `platform`'s dev Compose and api with `Sandbox__Mode=Fake`: `FakeSandboxSession` plays a scripted cluster, picked with `Sandbox__FakeScript`, and no broker is needed. Caddy serves `web` and `api` together on `http://localhost:8080`, with the same routes as production. `Real` mode comes in Milestone 2.
+No sandbox needed. `docker compose up -d --wait` in this repo starts Postgres and Caddy: `compose.yaml` includes `platform`'s dev Compose, so clone `platform` next to this repo. It's the same stack `web` starts, and `docker compose down` stops it (`down -v` also deletes the database). `platform`'s README has the routes and `ConnectionStrings__Db`. Run api with `Sandbox__Mode=Fake`: `FakeSandboxSession` plays a scripted cluster, picked with `Sandbox__FakeScript`, and no broker is needed. Caddy serves `web` and `api` together on `http://localhost:8080`, with the same routes as production. `Real` mode comes in Milestone 2.
 
 ## Ownership
 

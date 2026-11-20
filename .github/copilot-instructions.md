@@ -29,6 +29,7 @@ This repo is the ASP.NET Core backend (.NET 10) of kubernetes-learning-platform,
 - Files are UTF-8 with LF line endings.
 - CI on PRs runs `platform`'s `dotnet-ci` (lint copies, format check, Release build). The image is built and pushed only on merges to `main`. There are no tests yet.
 - `contracts-bump.yml` and `lint-sync.yml` run `platform`'s update bot on `repository_dispatch`, never on PRs. `KubernetesLearning.Contracts` is pinned once in `Directory.Packages.props`; flag a `Version` on a `PackageReference` or a second pin, because the bot bumps only that line. Every workflow job that restores packages grants `packages: read` and passes `GITHUB_PACKAGES_TOKEN`.
+- `compose.yaml` is for local dev only: it includes `../platform/dev/docker-compose.dev.yml` and holds nothing else. Flag services, ports or secrets added to it here, and any use of it as the deploy format, which is still OPEN.
 
 ## Don't
 - Don't comment on formatting that `dotnet format` or `.editorconfig` handles.
